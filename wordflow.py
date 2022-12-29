@@ -60,11 +60,8 @@ class WordFlow:
         audio = whisper.load_audio(input_file)
         audio = whisper.pad_or_trim(audio)
         mel = whisper.log_mel_spectrogram(audio).to(self.whisper_model.device)
-        # Attempt to detect the language
-        _, probs = self.whisper_model.device.detect_language(mel)
-        self.logger.info("Detected language: {}".format(max(probs, key=probs.get)))
         # Placeholder for options if we need them
-        options = whisper.DecodingOptions()
+        options = whisper.DecodingOptions(language="en", without_timestamps=False)
         # Run the decoder
         result = whisper.decode(self.whisper_model.device, mel, options)
         self.logger.info("Finished transcription")
