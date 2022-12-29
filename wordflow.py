@@ -6,6 +6,8 @@ import os
 import re
 import whisper
 
+from output import Output, OutputLine
+
 # Token for access the pyannote model
 PYANNOTE_TOKEN="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"
 
@@ -23,6 +25,7 @@ class WordFlow:
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
         self.speaker_segments = []
+        self.finished = False
         self.clean_substitution_map = {
             "gotcha": "got you",
             "gonna": "going to",
@@ -39,7 +42,7 @@ class WordFlow:
             "OKAY": "Okay",
             "OK": "okay",
         }
-        self.output = []
+        self.output = Output()
 
         if args.speakers:
             self.logger.info("Assuming speaker assignments:")
@@ -114,11 +117,8 @@ class WordFlow:
             if not self.args.fullverbatim:
                 text = self.clean_substitutions(text)
             text = self.full_substitutions(text)
-            self.output.append(text)
-            if self.args.timestamps:
-                print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
-            else:
-                print("{}: {}".format(speaker, text))
+            # Add the compiled data to the output object
+            self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
 
     def lookup_speaker(self, time_s):
         for segment in self.speaker_segments:
@@ -140,7 +140,7 @@ class WordFlow:
         new_text = text
         for old_word, new_word in self.clean_substitution_map.items():
             new_text = self.replace_word(new_text, old_word, new_word)
-        if new_text != text:
+        if new_text != text and self.args.verbose:
             self.logger.info("Replacement: {} -> {}".format(old_word, new_word))
         return new_text
 
@@ -165,6 +165,13 @@ class WordFlow:
         self.diaritize(wav_filepath)
         self.destroy_wav(wav_filepath)
         self.transcribe(args.input)
+        self.finished = True
+
+    def dump_output(self, timestamps = False):
+        if self.finished:
+            self.output.print(timestamps)
+        else:
+            self.logger.error("You must call run() first")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -173,8 +180,9 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
     parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available")
-    parser.add_argument("-d", "--debug", action=argparse.BooleanOptionalAction, help="Show debug information")
+    parser.add_argument("-v", "--verbose", action=argparse.BooleanOptionalAction, help="Show verbose debug information")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
     word_flow.run()
+    word_flow.dump_output(args.timestamps)
