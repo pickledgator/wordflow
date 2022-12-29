@@ -3,6 +3,7 @@ from pydub import AudioSegment
 import argparse
 import logging
 import os
+import re
 import whisper
 
 # Token for access the pyannote model
@@ -122,21 +123,28 @@ class WordFlow:
                 return segment["speaker"]
         return None
 
-    def clean_substitutions(self, text):
-        # Iterate over every word
-        for word in text.split():
-            # First see if the word needs a substitute
-            if word in self.clean_substitution_map:
-                word_prev = word
-                # Next remember the capitalization of the first letter
-                cap = word.isupper()
-                # Next substitude
-                word = self.clean_substitution_map[word.lower()]
-                # Apply capitialization, if needed
-                if cap:
-                    word = word.capitalize()
-                self.logger.info("Replacing {} with {}".format(word_prev, word))
-        return text
+    def clean_substitutions(self, text: str) -> str:
+        for old_word, new_word in self.clean_substitution_map.items():
+            new_text = self.replace_word(text, old_word, new_word)
+            if new_text is not text:
+                self.logger.info("Replacement: {} -> {}", old_word, new_word)
+        return new_text
+
+    def replace_word(sentence: str, old_word: str, new_word: str) -> str:
+        # Split the sentence into a list of words
+        words = re.split(r'(\W+)', sentence)
+        # Go through the list of words and replace the old word with the new word
+        # while maintaining the original capitalization and punctuation
+        for i, word in enumerate(words):
+            if word.lower() == old_word.lower():
+                if word.isupper():
+                    words[i] = new_word.upper()
+                elif word[0].isupper():
+                    words[i] = new_word.capitalize()
+                else:
+                    words[i] = new_word
+        # Join the list of words back into a single string and return it
+        return "".join(words)
 
     def run(self):
         wav_filepath = self.create_wav(args.input)
