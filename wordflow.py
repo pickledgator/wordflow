@@ -28,7 +28,7 @@ class WordFlow:
         diarization = self.diarization_pipeline(input_file)
         self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
-            self.speaker_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
+            self.speaker_segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
             start_seconds = turn.start
             start_hours = start_seconds // 3600
             start_minutes = (start_seconds % 3600) // 60
@@ -78,7 +78,7 @@ class WordFlow:
             end_remaining_seconds = end_seconds % 60
             text = segment["text"]
             # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
-            speaker = self.lookup_speaker((start_seconds + end_seconds) / 2.0)
+            speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
             print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
 
     def lookup_speaker(self, time_s):
@@ -99,7 +99,7 @@ class WordFlow:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
-    parser.add_argument("-m", "--model", default="medium", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
+    parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
