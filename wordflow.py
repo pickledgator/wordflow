@@ -132,17 +132,9 @@ class WordFlow:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
-<<<<<<< HEAD
-    parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
-=======
-<<<<<<< HEAD
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
-=======
-    parser.add_argument("-m", "--model", default="medium", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
->>>>>>> 538d82db6ae48ef87f371df824a109b2de578ddc
->>>>>>> d84671f1bb23ea3050b2a40a662d00bad7e53529
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
