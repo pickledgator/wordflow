@@ -19,11 +19,20 @@ class WordFlow:
         self.whisper_model = whisper.load_model(args.model)
 
     def diaritize(self, input_file, num_speak = 1):
-        self.logging.info("Running diarization...")
-        diarization = self.diarization_pipeline(input_file, num_speakers = num_speak)
-        self.logging.info("Finished diarization")
+        self.logger.info("Running diarization...")
+        diarization = self.diarization_pipeline(input_file)
+        self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
+            start_seconds = turn.start
+            start_hours = start_seconds // 3600
+            start_minutes = (start_seconds % 3600) // 60
+            start_remaining_seconds = start_seconds % 60
+            end_seconds = turn.end
+            end_hours = end_seconds // 3600
+            end_minutes = (end_seconds % 3600) // 60
+            end_remaining_seconds = end_seconds % 60
             print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")
+            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
     
     def create_wav(self, input_file):
         mp3_file = AudioSegment.from_mp3(input_file)
@@ -45,17 +54,21 @@ class WordFlow:
         result = self.whisper_model.transcribe(input_file)
         self.logger.info("Finished transcription")
         for segment in result["segments"]:
-            seconds = segment["start"]
-            hours = seconds // 3600
-            minutes = (seconds % 3600) // 60
-            remaining_seconds = seconds % 60
+            start_seconds = segment["start"]
+            start_hours = start_seconds // 3600
+            start_minutes = (start_seconds % 3600) // 60
+            start_remaining_seconds = start_seconds % 60
+            end_seconds = segment["end"]
+            end_hours = end_seconds // 3600
+            end_minutes = (end_seconds % 3600) // 60
+            end_remaining_seconds = end_seconds % 60
             text = segment["text"]
-            print("[{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(hours, minutes, remaining_seconds, text))
+            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, text))
 
     def run(self):
-        # wav_filepath = self.create_wav(args.input)
-        # self.diaritize(wav_filepath)
-        # self.destroy_wav(wav_filepath)
+        wav_filepath = self.create_wav(args.input)
+        self.diaritize(wav_filepath)
+        self.destroy_wav(wav_filepath)
         self.transcribe(args.input)
 
 if __name__ == "__main__":
