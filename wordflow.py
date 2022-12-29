@@ -5,7 +5,11 @@ import logging
 import os
 import whisper
 
+# Token for access the pyannote model
 PYANNOTE_TOKEN="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"
+
+# The number of seconds to subtract from the end of the segment window when trying to figure out which speaker was talking
+SPEAKER_LOOKUP_MARGIN_S=1.0
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s.%(msecs)03d UTC: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -17,22 +21,15 @@ class WordFlow:
         self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=PYANNOTE_TOKEN)
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
+        self.speaker_segments = []
 
     def diaritize(self, input_file, num_speak = 1):
         self.logger.info("Running diarization...")
         diarization = self.diarization_pipeline(input_file)
         self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
-            start_seconds = turn.start
-            start_hours = start_seconds // 3600
-            start_minutes = (start_seconds % 3600) // 60
-            start_remaining_seconds = start_seconds % 60
-            end_seconds = turn.end
-            end_hours = end_seconds // 3600
-            end_minutes = (end_seconds % 3600) // 60
-            end_remaining_seconds = end_seconds % 60
-            print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")
-            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
+            self.speaker_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
+            # print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
     
     def create_wav(self, input_file):
         mp3_file = AudioSegment.from_mp3(input_file)
@@ -63,7 +60,18 @@ class WordFlow:
             end_minutes = (end_seconds % 3600) // 60
             end_remaining_seconds = end_seconds % 60
             text = segment["text"]
-            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, text))
+            # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
+            speaker = self.lookup_speaker(end_seconds - SPEAKER_LOOKUP_MARGIN_S)
+            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
+
+    def lookup_speaker(self, time_s):
+        for segment in self.speaker_segments:
+            # Check to see if we're in a later segment
+            if(time_s > segment["end"]):
+                continue
+            if(time_s <= segment["end"] and time_s >= segment["start"]):
+                return segment["speaker"]
+        return None
 
     def run(self):
         wav_filepath = self.create_wav(args.input)
