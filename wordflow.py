@@ -35,6 +35,11 @@ class WordFlow:
             "ok": "okay",
         }
 
+        if args.speakers:
+            self.logger.info("Assuming speaker assignments:")
+            for i, name in enumerate(args.speakers):
+              self.logger.info("SPEAKER_{:01.0f} -> {}".format(i, name))
+
     def diaritize(self, input_file, num_speak = 1):
         self.logger.info("Running diarization...")
         diarization = self.diarization_pipeline(input_file)
@@ -51,8 +56,7 @@ class WordFlow:
             # Check to see if we have any speaker names provided
             if self.args.speakers:
                 # Get the index of the speaker, using the last two digits of the string
-                speaker_id = int(speaker[-2])
-                print("Speaker ID {}".format(speaker_id))
+                speaker_id = int(speaker[-1:])
                 if speaker_id > len(self.args.speakers)-1:
                     self.logger.warn("Speaker ID {} was larger than the list of provided speakers!".format(speaker_id))
                 else:
