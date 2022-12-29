@@ -39,6 +39,7 @@ class WordFlow:
             "OKAY": "Okay",
             "OK": "okay",
         }
+        self.output = []
 
         if args.speakers:
             self.logger.info("Assuming speaker assignments:")
@@ -113,7 +114,7 @@ class WordFlow:
             if not self.args.fullverbatim:
                 text = self.clean_substitutions(text)
             text = self.full_substitutions(text)
-            # Print the output to stdout
+            self.output.append(text)
             if self.args.timestamps:
                 print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
             else:
@@ -130,18 +131,20 @@ class WordFlow:
 
     # This method handles exact replacements of strings that are special cases
     def full_substitutions(self, text: str) -> str:
-        for old_word, new_word in self.special_substitution_map:
+        for old_word, new_word in self.special_substitution_map.items():
             text = text.replace(old_word, new_word)
+        return text
 
     # This method handles replacement strings that maintain capitialization and punctuation
     def clean_substitutions(self, text: str) -> str:
+        new_text = text
         for old_word, new_word in self.clean_substitution_map.items():
-            new_text = self.replace_word(text, old_word, new_word)
-            if new_text is not text:
-                self.logger.info("Replacement: {} -> {}", old_word, new_word)
+            new_text = self.replace_word(new_text, old_word, new_word)
+        if new_text != text:
+            self.logger.info("Replacement: {} -> {}".format(old_word, new_word))
         return new_text
 
-    def replace_word(sentence: str, old_word: str, new_word: str) -> str:
+    def replace_word(self, sentence: str, old_word: str, new_word: str) -> str:
         # Split the sentence into a list of words
         words = re.split(r'(\W+)', sentence)
         # Go through the list of words and replace the old word with the new word
@@ -169,7 +172,8 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
-    parser.add_argument('-s','--speakers', nargs='*', help="Speaker names, if available")
+    parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available")
+    parser.add_argument("-d", "--debug", action=argparse.BooleanOptionalAction, help="Show debug information")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
