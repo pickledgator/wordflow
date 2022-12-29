@@ -40,7 +40,6 @@ class WordFlow:
         diarization = self.diarization_pipeline(input_file)
         self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
-            self.speaker_segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
             start_seconds = turn.start
             start_hours = start_seconds // 3600
             start_minutes = (start_seconds % 3600) // 60
@@ -53,10 +52,12 @@ class WordFlow:
             if self.args.speakers:
                 # Get the index of the speaker, using the last two digits of the string
                 speaker_id = int(speaker[-2])
+                print("Speaker ID {}".format(speaker_id))
                 if speaker_id > len(self.args.speakers)-1:
                     self.logger.warn("Speaker ID {} was larger than the list of provided speakers!".format(speaker_id))
                 else:
                     speaker = self.args.speakers[speaker_id]
+            self.speaker_segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
             print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
     
     def create_wav(self, input_file):
