@@ -35,6 +35,10 @@ class WordFlow:
             "alright": "all right",
             "ok": "okay",
         }
+        self.special_substitution_map = {
+            "OKAY": "Okay",
+            "OK": "okay",
+        }
 
         if args.speakers:
             self.logger.info("Assuming speaker assignments:")
@@ -108,6 +112,7 @@ class WordFlow:
             # If we're using clean verbatim, apply substitutions to clean up the style
             if not self.args.fullverbatim:
                 text = self.clean_substitutions(text)
+            text = self.full_substitutions(text)
             # Print the output to stdout
             if self.args.timestamps:
                 print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
@@ -123,6 +128,12 @@ class WordFlow:
                 return segment["speaker"]
         return None
 
+    # This method handles exact replacements of strings that are special cases
+    def full_substitutions(self, text: str) -> str:
+        for old_word, new_word in self.special_substitution_map:
+            text = text.replace(old_word, new_word)
+
+    # This method handles replacement strings that maintain capitialization and punctuation
     def clean_substitutions(self, text: str) -> str:
         for old_word, new_word in self.clean_substitution_map.items():
             new_text = self.replace_word(text, old_word, new_word)
