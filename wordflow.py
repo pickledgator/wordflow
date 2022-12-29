@@ -124,9 +124,10 @@ class WordFlow:
 
     def clean_substitutions(self, text):
         # Iterate over every word
-        for word in text:
+        for word in text.split():
             # First see if the word needs a substitute
             if word in self.clean_substitution_map:
+                word_prev = word
                 # Next remember the capitalization of the first letter
                 cap = word.isupper()
                 # Next substitude
@@ -134,6 +135,7 @@ class WordFlow:
                 # Apply capitialization, if needed
                 if cap:
                     word = word.capitalize()
+                self.logger.info("Replacing {} with {}".format(word_prev, word))
         return text
 
     def run(self):
