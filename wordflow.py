@@ -29,7 +29,15 @@ class WordFlow:
         self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
             self.speaker_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
-            # print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
+            start_seconds = turn.start
+            start_hours = start_seconds // 3600
+            start_minutes = (start_seconds % 3600) // 60
+            start_remaining_seconds = start_seconds % 60
+            end_seconds = turn.end
+            end_hours = end_seconds // 3600
+            end_minutes = (end_seconds % 3600) // 60
+            end_remaining_seconds = end_seconds % 60
+            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
     
     def create_wav(self, input_file):
         mp3_file = AudioSegment.from_mp3(input_file)
@@ -61,7 +69,7 @@ class WordFlow:
             end_remaining_seconds = end_seconds % 60
             text = segment["text"]
             # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
-            speaker = self.lookup_speaker(end_seconds - SPEAKER_LOOKUP_MARGIN_S)
+            speaker = self.lookup_speaker((start_seconds + end_seconds) / 2.0)
             print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
 
     def lookup_speaker(self, time_s):
