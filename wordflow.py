@@ -49,6 +49,14 @@ class WordFlow:
             end_hours = end_seconds // 3600
             end_minutes = (end_seconds % 3600) // 60
             end_remaining_seconds = end_seconds % 60
+            # Check to see if we have any speaker names provided
+            if self.args.speakers:
+                # Get the index of the speaker, using the last two digits of the string
+                speaker_id = int(speaker[-2])
+                if speaker_id > len(self.args.speakers)-1:
+                    self.logger.warn("Speaker ID {} was larger than the list of provided speakers!".format(speaker_id))
+                else:
+                    speaker = self.args.speakers[speaker_id]
             print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
     
     def create_wav(self, input_file):
@@ -135,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
+    parser.add_argument('-s','--speakers', nargs='*', help="Speaker names, if available")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
