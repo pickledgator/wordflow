@@ -41,6 +41,7 @@ class WordFlow:
         self.special_substitution_map = {
             "OKAY": "Okay",
             "OK": "okay",
+            "!": ".",
         }
         self.output = Output()
 
@@ -127,6 +128,12 @@ class WordFlow:
                 continue
             if(time_s <= segment["end"] and time_s >= segment["start"]):
                 return segment["speaker"]
+        # Handle case when there's a gap, check to see if the surrounding speaker is the same, as just assume it was that same person
+        # TODO: This will still fail if the speaker changes during the gap
+        if(self.lookup_speaker(time_s - 5) == self.lookup_speaker(time_s + 5)):
+            if self.args.verbose:
+                self.logger.warn("Gap in speaker data at time {}, using neighboring speaker".format(time_s))
+            return self.lookup_speaker(time_s - 5)
         return None
 
     # This method handles exact replacements of strings that are special cases

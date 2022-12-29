@@ -16,6 +16,7 @@ class Output:
         self.output.append(OutputLine(start_hours, start_minutes, start_seconds, end_hours, end_minutes, end_seconds, speaker, text))
 
     def print(self, timestamps = False):
+        print()
         for output_line in self.output:
             str = ""
             if timestamps:
