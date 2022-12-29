@@ -56,14 +56,16 @@ class WordFlow:
 
     def transcribe(self, input_file):
         self.logger.info("Running transcription...")
-        # result = self.whisper_model.transcribe(input_file)
-        audio = whisper.load_audio(input_file)
-        audio = whisper.pad_or_trim(audio)
-        mel = whisper.log_mel_spectrogram(audio).to(self.whisper_model.device)
-        # Placeholder for options if we need them
-        options = whisper.DecodingOptions(language="en", without_timestamps=False)
+        options = whisper.DecodingOptions(without_timestamps=False)
+        result = self.whisper_model.transcribe(input_file)
+        #audio = whisper.load_audio(input_file)
+        #audio = whisper.pad_or_trim(audio)
+        #mel = whisper.log_mel_spectrogram(audio).to(self.whisper_model.device)
+        ## detect the spoken language
+        #_, probs = self.whisper_model.detect_language(mel)
+        #self.logger.info(f"Detected language: {max(probs, key=probs.get)}")
         # Run the decoder
-        result = whisper.decode(self.whisper_model.device, mel, options)
+        #result = whisper.decode(self.whisper_model, mel, options)
         self.logger.info("Finished transcription")
         for segment in result["segments"]:
             start_seconds = segment["start"]
@@ -97,7 +99,7 @@ class WordFlow:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
-    parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
+    parser.add_argument("-m", "--model", default="medium", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
