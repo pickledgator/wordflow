@@ -1,0 +1,3 @@
+git+https://github.com/pyannote/pyannote-audio.git
+git+https://github.com/openai/whisper.git
+pydub==0.25.1
