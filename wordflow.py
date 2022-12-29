@@ -22,6 +22,18 @@ class WordFlow:
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
         self.speaker_segments = []
+        self.clean_substitution_map = {
+            "gotcha": "got you",
+            "gonna": "going to",
+            "wanna": "want to",
+            "cause": "because",
+            "yeah": "yes",
+            "yep": "yes",
+            "yup": "yes",
+            "mmhmm": "yes",
+            "alright": "all right",
+            "ok": "okay",
+        }
 
     def diaritize(self, input_file, num_speak = 1):
         self.logger.info("Running diarization...")
@@ -79,7 +91,14 @@ class WordFlow:
             text = segment["text"]
             # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
             speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
-            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
+            # If we're using clean verbatim, apply substitutions to clean up the style
+            if not self.args.fullverbatim:
+                text = self.clean_substitutions(text)
+            # Print the output to stdout
+            if self.args.timestamps:
+                print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text))
+            else:
+                print("{}: {}".format(speaker, text))
 
     def lookup_speaker(self, time_s):
         for segment in self.speaker_segments:
@@ -90,6 +109,20 @@ class WordFlow:
                 return segment["speaker"]
         return None
 
+    def clean_substitutions(self, text):
+        # Iterate over every word
+        for word in text:
+            # First see if the word needs a substitute
+            if word in self.clean_substitution_map:
+                # Next remember the capitalization of the first letter
+                cap = word.isupper()
+                # Next substitude
+                word = self.clean_substitution_map[word.lower()]
+                # Apply capitialization, if needed
+                if cap:
+                    word = word.capitalize()
+        return text
+
     def run(self):
         wav_filepath = self.create_wav(args.input)
         self.diaritize(wav_filepath)
@@ -99,7 +132,17 @@ class WordFlow:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
+<<<<<<< HEAD
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
+=======
+<<<<<<< HEAD
+    parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
+    parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
+    parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
+=======
+    parser.add_argument("-m", "--model", default="medium", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
+>>>>>>> 538d82db6ae48ef87f371df824a109b2de578ddc
+>>>>>>> d84671f1bb23ea3050b2a40a662d00bad7e53529
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
