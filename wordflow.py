@@ -13,6 +13,8 @@ PYANNOTE_TOKEN="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"
 
 # The number of seconds to subtract from the end of the segment window when trying to figure out which speaker was talking
 SPEAKER_LOOKUP_MARGIN_S=1.0
+# 
+SAME_SPEAKER_MAX_WORDS=100
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s.%(msecs)03d UTC: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -119,6 +121,8 @@ class WordFlow:
 
         # Ensure the run-on sentences are combined correctly
         self.output.combine_sentences()
+        # Combine same speaker lines up to the max word count
+        self.output.combine_same_speaker_sentences(SAME_SPEAKER_MAX_WORDS)
 
     def lookup_speaker(self, time_s):
         for segment in self.speaker_segments:
