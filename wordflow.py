@@ -43,7 +43,7 @@ class WordFlow:
             "OK": "okay",
             "!": ".",
         }
-        self.output = Output()
+        self.output = Output(self.logger)
 
         if args.speakers:
             self.logger.info("Assuming speaker assignments:")

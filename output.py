@@ -14,6 +14,9 @@ class OutputLine:
 class Output:
     output = []
 
+    def __init__(self, logger):
+        self.logger = logger
+
     def add_line(self, start_hours, start_minutes, start_seconds, end_hours, end_minutes, end_seconds, speaker, text):
         self.output.append(OutputLine(start_hours, start_minutes, start_seconds, end_hours, end_minutes, end_seconds, speaker, text))
 
@@ -26,8 +29,9 @@ class Output:
                 break
             # check to see if the first letter is not capitalized, and if the last character of the previous sentence is not punctuation
             current_line_cap = self.output[index].text[0].isupper()
-            prev_line_punctuated = ends_in_punctuation(self.output[index-1])
+            prev_line_punctuated = ends_in_punctuation(self.output[index-1].text, True) # ignore_comma
             if(not current_line_cap and not prev_line_punctuated):
+                self.logger.info("Combining line {} with previous line".format(index))
                 # Append the text of the current line onto the end of the previous line
                 self.output[index-1].text += self.output[index].text
                 # Update the end time of the previous line to the end time of the current line
@@ -38,7 +42,7 @@ class Output:
                 lines_to_delete.append(index)
         # Remove the lines that were combined
         for id in lines_to_delete:
-            self.output.remove(id)
+            self.output.pop(id)
 
     def print(self, timestamps = False):
         print("======================================")
