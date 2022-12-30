@@ -91,17 +91,13 @@ class WordFlow:
 
     def transcribe(self, input_file):
         self.logger.info("Running transcription...")
+        
         options = whisper.DecodingOptions(without_timestamps=False)
         result = self.whisper_model.transcribe(input_file)
-        #audio = whisper.load_audio(input_file)
-        #audio = whisper.pad_or_trim(audio)
-        #mel = whisper.log_mel_spectrogram(audio).to(self.whisper_model.device)
-        ## detect the spoken language
-        #_, probs = self.whisper_model.detect_language(mel)
-        #self.logger.info(f"Detected language: {max(probs, key=probs.get)}")
-        # Run the decoder
-        #result = whisper.decode(self.whisper_model, mel, options)
+
         self.logger.info("Finished transcription")
+        
+        # Build the output object
         for segment in result["segments"]:
             start_seconds = segment["start"]
             start_hours = start_seconds // 3600
@@ -120,6 +116,9 @@ class WordFlow:
             text = self.full_substitutions(text)
             # Add the compiled data to the output object
             self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
+
+        # Ensure the run-on sentences are combined correctly
+        self.output.combine_sentences()
 
     def lookup_speaker(self, time_s):
         for segment in self.speaker_segments:
