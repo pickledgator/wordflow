@@ -6,6 +6,7 @@ import os
 import re
 import whisper
 
+from helpers import replace_numbers
 from output import Output, OutputLine
 
 # Token for access the pyannote model
@@ -115,13 +116,14 @@ class WordFlow:
             # If we're using clean verbatim, apply substitutions to clean up the style
             if not self.args.fullverbatim:
                 text = self.clean_substitutions(text)
+            text = replace_numbers(text)
             text = self.full_substitutions(text)
             # Add the compiled data to the output object
             self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
 
-        # Ensure the run-on sentences are combined correctly
-        self.output.combine_sentences()
-        # Combine same speaker lines up to the max word count
+        # First ensure the run-on sentences are combined correctly
+        self.output.combine_runons()
+        # Now combine same speaker lines up to the max word count
         self.output.combine_same_speaker_sentences(SAME_SPEAKER_MAX_WORDS)
 
     def lookup_speaker(self, time_s):
