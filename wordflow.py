@@ -74,7 +74,7 @@ class WordFlow:
         self.logger.info("Removing {}".format(filepath))
         os.remove(filepath)
 
-    def transcribe(self, input_file):
+    def transcribe(self, input_file: str, diaritize: bool):
         self.logger.info("Running transcription...")
         
         options = whisper.DecodingOptions(without_timestamps=False)
@@ -94,9 +94,11 @@ class WordFlow:
             end_minutes = (end_seconds % 3600) // 60
             end_remaining_seconds = end_seconds % 60
             text = segment["text"]
+            speaker = ""
 
             # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
-            speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
+            if diaritize:
+                speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
             
             # Apply any substitution strategies to apply specific styling to the output
             if self.args.expand_contractions:
@@ -172,9 +174,10 @@ class WordFlow:
 
     def run(self):
         wav_filepath = self.create_wav(args.input)
-        self.diaritize(wav_filepath)
+        if self.args.diaritize:
+            self.diaritize(wav_filepath)
         self.destroy_wav(wav_filepath)
-        self.transcribe(args.input)
+        self.transcribe(args.input, self.args.diaritize)
         self.finished = True
 
     def dump_output(self, timestamps = False):
@@ -188,8 +191,9 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
-    parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available")
     parser.add_argument("-v", "--verbose", action=argparse.BooleanOptionalAction, help="Show verbose debug information")
+    parser.add_argument("--diaritize", action=argparse.BooleanOptionalAction, help="Identify speakers using diaritization")
+    parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available. Only applicable if diaritize is used")
     parser.add_argument("--replace-numbers", action=argparse.BooleanOptionalAction, help="Replace 0-9 digits with words")
     parser.add_argument("--expand-contractions", action=argparse.BooleanOptionalAction, help="Expand contractions (eg, gotcha -> got you)")
     parser.add_argument("--replace-yes", action=argparse.BooleanOptionalAction, help="Expand variations of yea/yup -> yes (maintain capitalization)")
