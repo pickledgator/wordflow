@@ -6,6 +6,7 @@ import os
 import re
 import whisper
 
+from helpers import replace_numbers
 from output import Output, OutputLine
 from expansions import CONTRACTIONS_MAP, YES_MAP, OK_MAP, ETC_MAP, OK_EXACT_MAP, PUNCTUATION_EXACT_MAP
 
@@ -99,17 +100,19 @@ class WordFlow:
             
             # Apply any substitution strategies to apply specific styling to the output
             if self.args.expand_contractions:
-                self.replace_maintain_capitalization(text, CONTRACTIONS_MAP)
+                text = self.replace_maintain_capitalization(text, CONTRACTIONS_MAP)
             if self.args.replace_yes:
-                self.replace_maintain_capitalization(text, YES_MAP)
+                text = self.replace_maintain_capitalization(text, YES_MAP)
             if self.args.replace_ok:
-                self.replace_maintain_capitalization(text, OK_MAP)
+                text = self.replace_maintain_capitalization(text, OK_MAP)
             if self.args.replace_etc:
-                self.replace_maintain_capitalization(text, ETC_MAP)
+                text = self.replace_maintain_capitalization(text, ETC_MAP)
             if self.args.replace_ok_exact:
-                self.replace_exact(text, OK_EXACT_MAP)
+                text = self.replace_exact(text, OK_EXACT_MAP)
             if self.args.replace_punctuation_exact:
-                self.replace_exact(text, PUNCTUATION_EXACT_MAP)
+                text = self.replace_exact(text, PUNCTUATION_EXACT_MAP)
+            if self.args.replace_numbers:    
+                text = replace_numbers(text)
             
             # Add the compiled data to the output object
             self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
@@ -187,6 +190,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
     parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available")
     parser.add_argument("-v", "--verbose", action=argparse.BooleanOptionalAction, help="Show verbose debug information")
+    parser.add_argument("--replace-numbers", action=argparse.BooleanOptionalAction, help="Replace 0-9 digits with words")
     parser.add_argument("--expand-contractions", action=argparse.BooleanOptionalAction, help="Expand contractions (eg, gotcha -> got you)")
     parser.add_argument("--replace-yes", action=argparse.BooleanOptionalAction, help="Expand variations of yea/yup -> yes (maintain capitalization)")
     parser.add_argument("--replace-ok", action=argparse.BooleanOptionalAction, help="Expand variations of ok -> okay (maintain capitalization)")
