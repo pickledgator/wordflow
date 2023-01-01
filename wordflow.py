@@ -7,14 +7,13 @@ import re
 import whisper
 
 from output import Output, OutputLine
+from expansions import CONTRACTIONS_MAP, YES_MAP, OK_MAP, ETC_MAP, OK_EXACT_MAP, PUNCTUATION_EXACT_MAP
 
 # Token for access the pyannote model
 PYANNOTE_TOKEN="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"
 
 # The number of seconds to subtract from the end of the segment window when trying to figure out which speaker was talking
 SPEAKER_LOOKUP_MARGIN_S=1.0
-# 
-SAME_SPEAKER_MAX_WORDS=100
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s.%(msecs)03d UTC: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -28,23 +27,6 @@ class WordFlow:
         self.whisper_model = whisper.load_model(args.model)
         self.speaker_segments = []
         self.finished = False
-        self.clean_substitution_map = {
-            "gotcha": "got you",
-            "gonna": "going to",
-            "wanna": "want to",
-            "cause": "because",
-            "yeah": "yes",
-            "yep": "yes",
-            "yup": "yes",
-            "mmhmm": "yes",
-            "alright": "all right",
-            "ok": "okay",
-        }
-        self.special_substitution_map = {
-            "OKAY": "Okay",
-            "OK": "okay",
-            "!": ".",
-        }
         self.output = Output(self.logger)
 
         if args.speakers:
@@ -101,6 +83,7 @@ class WordFlow:
         
         # Build the output object
         for segment in result["segments"]:
+            # Convert the timestamp seconds output by the model into hours, minutes and seconds
             start_seconds = segment["start"]
             start_hours = start_seconds // 3600
             start_minutes = (start_seconds % 3600) // 60
@@ -110,19 +93,33 @@ class WordFlow:
             end_minutes = (end_seconds % 3600) // 60
             end_remaining_seconds = end_seconds % 60
             text = segment["text"]
+
             # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
             speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
-            # If we're using clean verbatim, apply substitutions to clean up the style
-            if not self.args.fullverbatim:
-                text = self.clean_substitutions(text)
-            text = self.full_substitutions(text)
+            
+            # Apply any substitution strategies to apply specific styling to the output
+            if self.args.expand_contractions:
+                self.replace_maintain_capitalization(text, CONTRACTIONS_MAP)
+            if self.args.replace_yes:
+                self.replace_maintain_capitalization(text, YES_MAP)
+            if self.args.replace_ok:
+                self.replace_maintain_capitalization(text, OK_MAP)
+            if self.args.replace_etc:
+                self.replace_maintain_capitalization(text, ETC_MAP)
+            if self.args.replace_ok_exact:
+                self.replace_exact(text, OK_EXACT_MAP)
+            if self.args.replace_punctuation_exact:
+                self.replace_exact(text, PUNCTUATION_EXACT_MAP)
+            
             # Add the compiled data to the output object
             self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
 
         # Ensure the run-on sentences are combined correctly
-        self.output.combine_sentences()
+        self.output.combine_runons()
+
         # Combine same speaker lines up to the max word count
-        self.output.combine_same_speaker_sentences(SAME_SPEAKER_MAX_WORDS)
+        if self.combine_same_speaker_paragraphs:
+            self.output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
 
     def lookup_speaker(self, time_s):
         for segment in self.speaker_segments:
@@ -140,15 +137,15 @@ class WordFlow:
         return None
 
     # This method handles exact replacements of strings that are special cases
-    def full_substitutions(self, text: str) -> str:
-        for old_word, new_word in self.special_substitution_map.items():
+    def replace_exact(self, text: str, map: dict) -> str:
+        for old_word, new_word in map.items():
             text = text.replace(old_word, new_word)
         return text
 
     # This method handles replacement strings that maintain capitialization and punctuation
-    def clean_substitutions(self, text: str) -> str:
+    def replace_maintain_capitalization(self, text: str, map: dict) -> str:
         new_text = text
-        for old_word, new_word in self.clean_substitution_map.items():
+        for old_word, new_word in map.items():
             new_text = self.replace_word(new_text, old_word, new_word)
         if new_text != text and self.args.verbose:
             self.logger.info("Replacement: {} -> {}".format(old_word, new_word))
@@ -187,10 +184,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", required=True, help="The audio input file")
     parser.add_argument("-m", "--model", default="medium.en", help="OpenAI Whisper model to use (tiny[.en], base[.en], small[.en], medium[.en], large)")
-    parser.add_argument("-f", "--fullverbatim", action=argparse.BooleanOptionalAction, help="Use Full Verbatim instead of default Clean Verbatim")
     parser.add_argument("-t", "--timestamps", action=argparse.BooleanOptionalAction, help="Include timestamps in output")
     parser.add_argument("-s", "--speakers", nargs="*", help="Speaker names, if available")
     parser.add_argument("-v", "--verbose", action=argparse.BooleanOptionalAction, help="Show verbose debug information")
+    parser.add_argument("--expand-contractions", action=argparse.BooleanOptionalAction, help="Expand contractions (eg, gotcha -> got you)")
+    parser.add_argument("--replace-yes", action=argparse.BooleanOptionalAction, help="Expand variations of yea/yup -> yes (maintain capitalization)")
+    parser.add_argument("--replace-ok", action=argparse.BooleanOptionalAction, help="Expand variations of ok -> okay (maintain capitalization)")
+    parser.add_argument("--replace-etc", action=argparse.BooleanOptionalAction, help="Expand variations of etc -> etcetra (maintain capitalization)")
+    parser.add_argument("--replace-ok-exact", action=argparse.BooleanOptionalAction, help="Expand variations of OKAY -> Okay (exact match)")
+    parser.add_argument("--replace-punctuation-exact", action=argparse.BooleanOptionalAction, help="Expand variations punctuation (exact match)")
+    parser.add_argument("--combine-same-speaker-paragraphs", action=argparse.BooleanOptionalAction, help="Expand variations punctuation (exact match)")
+    parser.add_argument("--max-words-same-speaker", default="100", type=int, help="When combine-same-speaker-paragraphs is set, this is the maximum number of words to combine into a paragraph")
     args = parser.parse_args()
 
     word_flow = WordFlow(args)
