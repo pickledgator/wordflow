@@ -38,13 +38,13 @@ class Output:
         paragraph_words = 0
         paragraph_start_index = 0
         lines_to_delete = []
-        for index, segment in enumerate(self.output):
+        for index, segment in enumerate(self.segments):
             # Skip the first line
             if index == 0:
                 continue
 
             # Check to see if the speakaer matches the previous line
-            if segment.speaker == self.output[index-1].speaker:
+            if segment.speaker == self.segments[index-1].speaker:
                 # Add the words from this line to the counter
                 paragraph_words += len(segment.text.split())
                 # If the number of words is still less than the max_words, combine it
@@ -62,15 +62,15 @@ class Output:
                 paragraph_words = len(segment.text.split())
         
         # Remove the lines that were combined
-        self.output = [item for i, item in enumerate(self.output) if i not in lines_to_delete]
+        self.segments = [item for i, item in enumerate(self.segments) if i not in lines_to_delete]
 
 
     def combine_prev_line(self, index, prev_index):
         self.logger.info("Combining line {} with previous line".format(index))
         # Append the text of the current line onto the end of the previous line
-        self.output[prev_index].text += self.output[index].text
+        self.segments[prev_index].text += self.segments[index].text
         # Update the end time of the previous line to the end time of the current line
-        self.output[prev_index].end = self.output[index].end
+        self.segments[prev_index].end = self.segments[index].end
 
     def print(self, timestamps = False):
         print("======================================")
