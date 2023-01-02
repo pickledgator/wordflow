@@ -27,7 +27,7 @@ class WordFlow:
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
         self.finished = False
-        self.output = Output(self.logger)
+        # self.output = Output(self.logger)
 
         if args.speakers:
             self.logger.info("Assuming speaker assignments:")
@@ -55,25 +55,26 @@ class WordFlow:
                 print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
         return segments
 
-    def transcribe(self, input_files: list, diaritize: bool):
+    def transcribe(self, segments: list, diaritize: bool):
         self.logger.info("Running transcription...")
         
         options = whisper.DecodingOptions(
             without_timestamps=False,
         )
 
-        transcription_results = []
-        for i, input_file in enumerate(input_files):
+        output = Output(self.logger)
+
+        for i, segment in enumerate(segments):
             # Run the transcription on the audio file
             # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
             self.logger.info("Transcribing segment {}".format(i))
             result = self.whisper_model.transcribe(
-                audio=input_file, 
+                audio=segment["file"], 
                 initial_prompt="This is a sentence with punctuation."
             )
-            transcription_results.append(result)
+            output.add_segment(segment["start"], segment["end"], segment["speaker"], result["text"])
 
-        return transcription_results
+        return output
         
         
         # Build the output object
@@ -147,11 +148,11 @@ class WordFlow:
             self.logger.info("Identified {} segments".format(len(segments)))
             
             # If we're diarizing, overwrite the audio files with the new segment files
-            audio_files = split_wav_segments(wav_filepath, segments)
-            self.logger.info("Generated {} new wav files based on segments".format(len(audio_files)))
+            segments = split_wav_segments(wav_filepath, segments)
+            self.logger.info("Generated {} new wav files based on segments".format(len(segments)))
 
-        results = self.transcribe(audio_files, self.args.diaritize)
-        print(results)
+        output = self.transcribe(segments, self.args.diaritize)
+        output.print()
 
         self.logger.info("Removing all wav files")
         destroy_wav_files()

@@ -82,8 +82,6 @@ def replace_numbers(s):
   return re.sub(pattern, replace, s)
 
 def split_wav_segments(input_file: str, segments: list) -> int:
-    output_files = []
-
     with wave.open(input_file, "rb") as wave_file:
         # Read the wave file properties
         num_channels = wave_file.getnchannels()
@@ -109,9 +107,9 @@ def split_wav_segments(input_file: str, segments: list) -> int:
             wave_file.setsampwidth(sample_width)
             wave_file.setframerate(frame_rate)
             wave_file.writeframes(struct.pack("%dh" % len(segment_data), *segment_data))
-            output_files.append(filepath)
+            segments["file"] = filepath
     
-    return output_files
+    return segments
 
 def mp3_to_wav(input_file):
     mp3_file = AudioSegment.from_mp3(input_file)
