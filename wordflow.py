@@ -33,10 +33,12 @@ class WordFlow:
             self.logger.info("Assuming speaker assignments:")
             for i, name in enumerate(args.speakers):
               self.logger.info("SPEAKER_{:01.0f} -> {}".format(i, name))
+        else:
+            args.speakers = ["SPEAKER_01"]
 
     def diaritize(self, input_file, num_speak = 1) -> list:
         self.logger.info("Running diarization...")
-        diarization = self.diarization_pipeline(input_file, num_speakers=2)
+        diarization = self.diarization_pipeline(input_file, num_speakers=len(self.args.speakers))
         self.logger.info("Finished diarization")
 
         # Process the results of the diarization model
