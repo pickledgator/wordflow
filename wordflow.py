@@ -5,7 +5,7 @@ import os
 import re
 import whisper
 
-from helpers import replace_numbers, split_wav_segments, destroy_wav, mp3_to_wav, replace_exact, replace_maintain_capitalization
+from helpers import replace_numbers, split_wav_segments, destroy_wav_files, mp3_to_wav, replace_exact, replace_maintain_capitalization
 from output import Output, OutputLine
 from expansions import CONTRACTIONS_MAP, YES_MAP, OK_MAP, ETC_MAP, OK_EXACT_MAP, PUNCTUATION_EXACT_MAP
 
@@ -55,63 +55,70 @@ class WordFlow:
                 print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
         return segments
 
-    def transcribe(self, input_file: str, diaritize: bool):
+    def transcribe(self, input_files: list, diaritize: bool):
         self.logger.info("Running transcription...")
         
         options = whisper.DecodingOptions(
             without_timestamps=False,
         )
-        # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
-        result = self.whisper_model.transcribe(
-            audio=input_file, 
-            initial_prompt="This is a sentence with punctuation."
-        )
 
-        self.logger.info("Finished transcription")
+        transcription_results = []
+        for i, input_file in enumerate(input_files):
+            # Run the transcription on the audio file
+            # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
+            self.logger.info("Transcribing segment {}".format(i))
+            result = self.whisper_model.transcribe(
+                audio=input_file, 
+                initial_prompt="This is a sentence with punctuation."
+            )
+            transcription_results.append(result)
+
+        return transcription_results
+        
         
         # Build the output object
-        for segment in result["segments"]:
-            # Convert the timestamp seconds output by the model into hours, minutes and seconds
-            start_seconds = segment["start"]
-            start_hours = start_seconds // 3600
-            start_minutes = (start_seconds % 3600) // 60
-            start_remaining_seconds = start_seconds % 60
-            end_seconds = segment["end"]
-            end_hours = end_seconds // 3600
-            end_minutes = (end_seconds % 3600) // 60
-            end_remaining_seconds = end_seconds % 60
-            text = segment["text"]
-            speaker = ""
+        # for segment in result["segments"]:
+        #     # Convert the timestamp seconds output by the model into hours, minutes and seconds
+        #     start_seconds = segment["start"]
+        #     start_hours = start_seconds // 3600
+        #     start_minutes = (start_seconds % 3600) // 60
+        #     start_remaining_seconds = start_seconds % 60
+        #     end_seconds = segment["end"]
+        #     end_hours = end_seconds // 3600
+        #     end_minutes = (end_seconds % 3600) // 60
+        #     end_remaining_seconds = end_seconds % 60
+        #     text = segment["text"]
+        #     speaker = ""
 
-            # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
-            if diaritize:
-                speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
+        #     # Find the current speaker from the diarization table, with a bit of margin since the segment times might be slightly different
+        #     if diaritize:
+        #         speaker = self.lookup_speaker(start_seconds + SPEAKER_LOOKUP_MARGIN_S)
             
-            # Apply any substitution strategies to apply specific styling to the output
-            if self.args.expand_contractions:
-                text = replace_maintain_capitalization(text, CONTRACTIONS_MAP)
-            if self.args.replace_yes:
-                text = replace_maintain_capitalization(text, YES_MAP)
-            if self.args.replace_ok:
-                text = replace_maintain_capitalization(text, OK_MAP)
-            if self.args.replace_etc:
-                text = replace_maintain_capitalization(text, ETC_MAP)
-            if self.args.replace_ok_exact:
-                text = replace_exact(text, OK_EXACT_MAP)
-            if self.args.replace_punctuation_exact:
-                text = replace_exact(text, PUNCTUATION_EXACT_MAP)
-            if self.args.replace_numbers:    
-                text = replace_numbers(text)
+        #     # Apply any substitution strategies to apply specific styling to the output
+        #     if self.args.expand_contractions:
+        #         text = replace_maintain_capitalization(text, CONTRACTIONS_MAP)
+        #     if self.args.replace_yes:
+        #         text = replace_maintain_capitalization(text, YES_MAP)
+        #     if self.args.replace_ok:
+        #         text = replace_maintain_capitalization(text, OK_MAP)
+        #     if self.args.replace_etc:
+        #         text = replace_maintain_capitalization(text, ETC_MAP)
+        #     if self.args.replace_ok_exact:
+        #         text = replace_exact(text, OK_EXACT_MAP)
+        #     if self.args.replace_punctuation_exact:
+        #         text = replace_exact(text, PUNCTUATION_EXACT_MAP)
+        #     if self.args.replace_numbers:    
+        #         text = replace_numbers(text)
             
-            # Add the compiled data to the output object
-            self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
+        #     # Add the compiled data to the output object
+        #     self.output.add_line(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
 
-        # Ensure the run-on sentences are combined correctly
-        # self.output.combine_runons()
+        # # Ensure the run-on sentences are combined correctly
+        # # self.output.combine_runons()
 
-        # Combine same speaker lines up to the max word count
-        if self.args.combine_same_speaker_paragraphs:
-            self.output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
+        # # Combine same speaker lines up to the max word count
+        # if self.args.combine_same_speaker_paragraphs:
+        #     self.output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
 
     # def lookup_speaker(self, time_s):
     #     for segment in self.speaker_segments:
@@ -129,20 +136,26 @@ class WordFlow:
     #     return None
 
     def run(self):
+        # Start out with just the main file
+        audio_files = [self.args.input]
+
         if self.args.diaritize:
-            wav_filepath = mp3_to_wav(args.input)
+            wav_filepath = mp3_to_wav(self.args.input)
             self.logger.info("Created {}".format(wav_filepath))
 
             segments = self.diaritize(wav_filepath)
             self.logger.info("Identified {} segments".format(len(segments)))
             
-            num_files = split_wav_segments(wav_filepath, segments)
-            self.logger.info("Generated {} new wav files based on segments".format(num_files))
+            # If we're diarizing, overwrite the audio files with the new segment files
+            audio_files = split_wav_segments(wav_filepath, segments)
+            self.logger.info("Generated {} new wav files based on segments".format(len(audio_files)))
 
-            # self.logger.info("Removing all wav files")
-            # destroy_wav()
+        results = self.transcribe(audio_files, self.args.diaritize)
+        print(results)
 
-        # self.transcribe(args.input, self.args.diaritize)
+        self.logger.info("Removing all wav files")
+        destroy_wav_files()
+
         self.finished = True
 
     def dump_output(self, timestamps = False):
