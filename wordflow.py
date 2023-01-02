@@ -72,6 +72,12 @@ class WordFlow:
                 audio=segment["file"], 
                 initial_prompt="This is a sentence with punctuation."
             )
+
+            # Ignore segments that don't have any output from whisper, or return this junk phrase
+            # TODO: Figure out how to reduce these segments coming out of the diarization
+            if result["text"] == "" or result["text"] == " " or result["text"] == " This is a sentence with punctuation.":
+                continue
+
             output.add_segment(segment["start"], segment["end"], segment["speaker"], result["text"])
 
         return output
