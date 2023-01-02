@@ -23,7 +23,8 @@ class WordFlow:
         self.args = args
         self.logger = logging.getLogger("WordFlow")
         self.logger.info("Initializing the pyannote diarization model pipeline...")
-        self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=PYANNOTE_TOKEN)
+        if self.args.diaritize:
+            self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=PYANNOTE_TOKEN)
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
         self.speaker_segments = []
@@ -77,7 +78,11 @@ class WordFlow:
     def transcribe(self, input_file: str, diaritize: bool):
         self.logger.info("Running transcription...")
         
-        options = whisper.DecodingOptions(without_timestamps=False)
+        options = whisper.DecodingOptions(
+            without_timestamps=False,
+            # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
+            initial_prompt="This is a sentence with punctuation."
+        )
         result = self.whisper_model.transcribe(input_file)
 
         self.logger.info("Finished transcription")
@@ -173,10 +178,10 @@ class WordFlow:
         return "".join(words)
 
     def run(self):
-        wav_filepath = self.create_wav(args.input)
         if self.args.diaritize:
+            wav_filepath = self.create_wav(args.input)
             self.diaritize(wav_filepath)
-        self.destroy_wav(wav_filepath)
+            self.destroy_wav(wav_filepath)
         self.transcribe(args.input, self.args.diaritize)
         self.finished = True
 
