@@ -80,10 +80,12 @@ class WordFlow:
         
         options = whisper.DecodingOptions(
             without_timestamps=False,
-            # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
-            initial_prompt="This is a sentence with punctuation."
         )
-        result = self.whisper_model.transcribe(input_file)
+        # Encourge the model to use punctuation as a prior so it doesn't get stuck in no punctuation mode.
+        result = self.whisper_model.transcribe(
+            audio=input_file, 
+            decode_options={"initial_prompt": "This is a sentence with punctuation."}
+        )
 
         self.logger.info("Finished transcription")
         
