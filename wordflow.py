@@ -1,12 +1,11 @@
 from pyannote.audio import Pipeline
-from pydub import AudioSegment
 import argparse
 import logging
 import os
 import re
 import whisper
 
-from helpers import replace_numbers
+from helpers import replace_numbers, split_wav_segments, destroy_wav, mp3_to_wav, replace_exact, replace_maintain_capitalization
 from output import Output, OutputLine
 from expansions import CONTRACTIONS_MAP, YES_MAP, OK_MAP, ETC_MAP, OK_EXACT_MAP, PUNCTUATION_EXACT_MAP
 
@@ -27,7 +26,6 @@ class WordFlow:
             self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=PYANNOTE_TOKEN)
         self.logger.info("Initializing the whisper model pipeline...")
         self.whisper_model = whisper.load_model(args.model)
-        self.speaker_segments = []
         self.finished = False
         self.output = Output(self.logger)
 
@@ -36,10 +34,13 @@ class WordFlow:
             for i, name in enumerate(args.speakers):
               self.logger.info("SPEAKER_{:01.0f} -> {}".format(i, name))
 
-    def diaritize(self, input_file, num_speak = 1):
+    def diaritize(self, input_file, num_speak = 1) -> list:
         self.logger.info("Running diarization...")
         diarization = self.diarization_pipeline(input_file)
         self.logger.info("Finished diarization")
+
+        # Process the results of the diarization model
+        segments = []
         for turn, _, speaker in diarization.itertracks(yield_label=True):
             # Check to see if we have any speaker names provided
             if self.args.speakers:
@@ -49,23 +50,10 @@ class WordFlow:
                     self.logger.warn("Speaker ID {} was larger than the list of provided speakers!".format(speaker_id))
                 else:
                     speaker = self.args.speakers[speaker_id]
-            self.speaker_segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
-            print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
-    
-    def create_wav(self, input_file):
-        mp3_file = AudioSegment.from_mp3(input_file)
-        # fine the basename of the file (remove the extension)
-        input_filename = os.path.basename(input_file)
-        input_basename, _ = os.path.splitext(input_filename)
-        input_dir = os.path.dirname(input_file)
-        output_file = os.path.join(input_dir, input_basename + ".wav")
-        mp3_file.export(output_file, format="wav")
-        self.logger.info("Created {}".format(output_file))
-        return output_file
-
-    def destroy_wav(self, filepath):
-        self.logger.info("Removing {}".format(filepath))
-        os.remove(filepath)
+            segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
+            if self.args.verbose:
+                print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
+        return segments
 
     def transcribe(self, input_file: str, diaritize: bool):
         self.logger.info("Running transcription...")
@@ -101,17 +89,17 @@ class WordFlow:
             
             # Apply any substitution strategies to apply specific styling to the output
             if self.args.expand_contractions:
-                text = self.replace_maintain_capitalization(text, CONTRACTIONS_MAP)
+                text = replace_maintain_capitalization(text, CONTRACTIONS_MAP)
             if self.args.replace_yes:
-                text = self.replace_maintain_capitalization(text, YES_MAP)
+                text = replace_maintain_capitalization(text, YES_MAP)
             if self.args.replace_ok:
-                text = self.replace_maintain_capitalization(text, OK_MAP)
+                text = replace_maintain_capitalization(text, OK_MAP)
             if self.args.replace_etc:
-                text = self.replace_maintain_capitalization(text, ETC_MAP)
+                text = replace_maintain_capitalization(text, ETC_MAP)
             if self.args.replace_ok_exact:
-                text = self.replace_exact(text, OK_EXACT_MAP)
+                text = replace_exact(text, OK_EXACT_MAP)
             if self.args.replace_punctuation_exact:
-                text = self.replace_exact(text, PUNCTUATION_EXACT_MAP)
+                text = replace_exact(text, PUNCTUATION_EXACT_MAP)
             if self.args.replace_numbers:    
                 text = replace_numbers(text)
             
@@ -125,57 +113,35 @@ class WordFlow:
         if self.args.combine_same_speaker_paragraphs:
             self.output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
 
-    def lookup_speaker(self, time_s):
-        for segment in self.speaker_segments:
-            # Check to see if we're in a later segment
-            if(time_s > segment["end"]):
-                continue
-            if(time_s <= segment["end"] and time_s >= segment["start"]):
-                return segment["speaker"]
-        # Handle case when there's a gap, check to see if the surrounding speaker is the same, as just assume it was that same person
-        # TODO: This will still fail if the speaker changes during the gap
-        if(self.lookup_speaker(time_s - 5) == self.lookup_speaker(time_s + 5)):
-            if self.args.verbose:
-                self.logger.warn("Gap in speaker data at time {}, using neighboring speaker".format(time_s))
-            return self.lookup_speaker(time_s - 5)
-        return None
-
-    # This method handles exact replacements of strings that are special cases
-    def replace_exact(self, text: str, map: dict) -> str:
-        for old_word, new_word in map.items():
-            text = text.replace(old_word, new_word)
-        return text
-
-    # This method handles replacement strings that maintain capitialization and punctuation
-    def replace_maintain_capitalization(self, text: str, map: dict) -> str:
-        new_text = text
-        for old_word, new_word in map.items():
-            new_text = self.replace_word(new_text, old_word, new_word)
-        if new_text != text and self.args.verbose:
-            self.logger.info("Replacement: {} -> {}".format(old_word, new_word))
-        return new_text
-
-    def replace_word(self, sentence: str, old_word: str, new_word: str) -> str:
-        # Split the sentence into a list of words
-        words = re.split(r'(\W+)', sentence)
-        # Go through the list of words and replace the old word with the new word
-        # while maintaining the original capitalization and punctuation
-        for i, word in enumerate(words):
-            if word.lower() == old_word.lower():
-                if word.isupper():
-                    words[i] = new_word.upper()
-                elif word[0].isupper():
-                    words[i] = new_word.capitalize()
-                else:
-                    words[i] = new_word
-        # Join the list of words back into a single string and return it
-        return "".join(words)
+    # def lookup_speaker(self, time_s):
+    #     for segment in self.speaker_segments:
+    #         # Check to see if we're in a later segment
+    #         if(time_s > segment["end"]):
+    #             continue
+    #         if(time_s <= segment["end"] and time_s >= segment["start"]):
+    #             return segment["speaker"]
+    #     # Handle case when there's a gap, check to see if the surrounding speaker is the same, as just assume it was that same person
+    #     # TODO: This will still fail if the speaker changes during the gap
+    #     if(self.lookup_speaker(time_s - 5) == self.lookup_speaker(time_s + 5)):
+    #         if self.args.verbose:
+    #             self.logger.warn("Gap in speaker data at time {}, using neighboring speaker".format(time_s))
+    #         return self.lookup_speaker(time_s - 5)
+    #     return None
 
     def run(self):
         if self.args.diaritize:
-            wav_filepath = self.create_wav(args.input)
-            self.diaritize(wav_filepath)
-            self.destroy_wav(wav_filepath)
+            wav_filepath = mp3_to_wav(args.input)
+            self.logger.info("Created {}".format(wav_filepath))
+
+            segments = self.diaritize(wav_filepath)
+            self.logger.info("Identified {} segments".format(segments))
+            
+            num_files = split_wav_segments(segments)
+            self.logger.info("Generated {} new wav files based on segments".format(num_files))
+
+            # self.logger.info("Removing all wav files")
+            # destroy_wav()
+            
         # self.transcribe(args.input, self.args.diaritize)
         self.finished = True
 

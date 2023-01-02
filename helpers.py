@@ -1,5 +1,41 @@
+import glob
+import os
+import numpy as np
 import re
+from pydub import AudioSegment
+import struct
 import string
+import wave
+
+# Replaces a word in a sentence and maintains its capitalization
+def replace_word(sentence: str, old_word: str, new_word: str) -> str:
+    # Split the sentence into a list of words
+    words = re.split(r'(\W+)', sentence)
+    # Go through the list of words and replace the old word with the new word
+    # while maintaining the original capitalization and punctuation
+    for i, word in enumerate(words):
+        if word.lower() == old_word.lower():
+            if word.isupper():
+                words[i] = new_word.upper()
+            elif word[0].isupper():
+                words[i] = new_word.capitalize()
+            else:
+                words[i] = new_word
+    # Join the list of words back into a single string and return it
+    return "".join(words)
+
+# This method handles exact replacements of strings that are special cases
+def replace_exact(text: str, map: dict) -> str:
+    for old_word, new_word in map.items():
+        text = text.replace(old_word, new_word)
+    return text
+
+# This method handles replacement strings that maintain capitialization and punctuation
+def replace_maintain_capitalization(text: str, map: dict) -> str:
+    new_text = text
+    for old_word, new_word in map.items():
+        new_text = replace_word(new_text, old_word, new_word)
+    return new_text
 
 def ends_in_punctuation(s: str, ignore_comma = False) -> bool:
     # remove leading and trailing whitespace
@@ -44,3 +80,44 @@ def replace_numbers(s):
   pattern = r'\d+'
   # Replace the integers with their text representation
   return re.sub(pattern, replace, s)
+
+def split_wav_segments(input_file: str, segments: list) -> int:
+    with wave.open(input_file, "rb") as wave_file:
+        # Read the wave file properties
+        num_channels = wave_file.getnchannels()
+        sample_width = wave_file.getsampwidth()
+        frame_rate = wave_file.getframerate()
+        num_frames = wave_file.getnframes()
+        # Read the wave file frames
+        wave_data = wave_file.readframes(num_frames)
+
+    # Convert wave data to a NumPy array
+    data = np.array(struct.unpack_from("%dh" % num_frames * num_channels, wave_data))
+
+    # Split the segments and write the files
+    for i, segment in enumerate(segments):
+        start = segment["start"]
+        end = segment["end"]
+        segment_data = data[start:end]
+        with wave.open(f"segment_{i+1}.wav", "wb") as wave_file:
+            wave_file.setnchannels(num_channels)
+            wave_file.setsampwidth(sample_width)
+            wave_file.setframerate(frame_rate)
+            wave_file.writeframes(struct.pack("%dh" % len(segment_data), *segment_data))
+    
+    return len(segments)
+
+def mp3_to_wav(input_file):
+    mp3_file = AudioSegment.from_mp3(input_file)
+    # fine the basename of the file (remove the extension)
+    input_filename = os.path.basename(input_file)
+    input_basename, _ = os.path.splitext(input_filename)
+    input_dir = os.path.dirname(input_file)
+    output_file = os.path.join(input_dir, input_basename + ".wav")
+    mp3_file.export(output_file, format="wav")
+    return output_file
+
+def destroy_wav():
+    files = glob.glob("*.wav")
+    for file in files:
+        os.remove(file)
