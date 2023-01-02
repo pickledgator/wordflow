@@ -50,7 +50,7 @@ class WordFlow:
                     self.logger.warn("Speaker ID {} was larger than the list of provided speakers!".format(speaker_id))
                 else:
                     speaker = self.args.speakers[speaker_id]
-            segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
+            segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
             if self.args.verbose:
                 print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
         return segments
@@ -134,14 +134,14 @@ class WordFlow:
             self.logger.info("Created {}".format(wav_filepath))
 
             segments = self.diaritize(wav_filepath)
-            self.logger.info("Identified {} segments".format(segments))
+            self.logger.info("Identified {} segments".format(len(segments)))
             
-            num_files = split_wav_segments(segments)
+            num_files = split_wav_segments(wav_filepath, segments)
             self.logger.info("Generated {} new wav files based on segments".format(num_files))
 
             # self.logger.info("Removing all wav files")
             # destroy_wav()
-            
+
         # self.transcribe(args.input, self.args.diaritize)
         self.finished = True
 
