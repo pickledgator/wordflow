@@ -81,19 +81,19 @@ class Output:
         for segment in self.segments:
 
             # Convert the timestamp seconds output by the model into hours, minutes and seconds
-            start_seconds = segment["start"]
+            start_seconds = segment.start
             start_hours = start_seconds // 3600
             start_minutes = (start_seconds % 3600) // 60
             start_remaining_seconds = start_seconds % 60
-            end_seconds = segment["end"]
+            end_seconds = segment.end
             end_hours = end_seconds // 3600
             end_minutes = (end_seconds % 3600) // 60
             end_remaining_seconds = end_seconds % 60
 
             str = ""
             if timestamps:
-                str = "[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker, text)
+                str = "[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}] {}: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, segment.speaker, segment.text)
             else:
-                str = "{}: {}".format(speaker, text)
+                str = "{}: {}".format(segment.speaker, segment.text)
 
             print(str)

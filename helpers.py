@@ -107,7 +107,7 @@ def split_wav_segments(input_file: str, segments: list) -> int:
             wave_file.setsampwidth(sample_width)
             wave_file.setframerate(frame_rate)
             wave_file.writeframes(struct.pack("%dh" % len(segment_data), *segment_data))
-            segments["file"] = filepath
+            segment["file"] = filepath
     
     return segments
 

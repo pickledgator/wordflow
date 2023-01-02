@@ -6,7 +6,7 @@ import re
 import whisper
 
 from helpers import replace_numbers, split_wav_segments, destroy_wav_files, mp3_to_wav, replace_exact, replace_maintain_capitalization
-from output import Output, OutputLine
+from output import Output
 from expansions import CONTRACTIONS_MAP, YES_MAP, OK_MAP, ETC_MAP, OK_EXACT_MAP, PUNCTUATION_EXACT_MAP
 
 # Token for access the pyannote model
@@ -159,11 +159,6 @@ class WordFlow:
 
         self.finished = True
 
-    def dump_output(self, timestamps = False):
-        if self.finished:
-            self.output.print(timestamps)
-        else:
-            self.logger.error("You must call run() first")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -186,4 +181,3 @@ if __name__ == "__main__":
 
     word_flow = WordFlow(args)
     word_flow.run()
-    word_flow.dump_output(args.timestamps)
