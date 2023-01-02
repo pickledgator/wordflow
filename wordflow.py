@@ -36,7 +36,7 @@ class WordFlow:
 
     def diaritize(self, input_file, num_speak = 1) -> list:
         self.logger.info("Running diarization...")
-        diarization = self.diarization_pipeline(input_file)
+        diarization = self.diarization_pipeline(input_file, num_speakers=2)
         self.logger.info("Finished diarization")
 
         # Process the results of the diarization model
