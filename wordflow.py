@@ -41,14 +41,6 @@ class WordFlow:
         diarization = self.diarization_pipeline(input_file)
         self.logger.info("Finished diarization")
         for turn, _, speaker in diarization.itertracks(yield_label=True):
-            start_seconds = turn.start
-            start_hours = start_seconds // 3600
-            start_minutes = (start_seconds % 3600) // 60
-            start_remaining_seconds = start_seconds % 60
-            end_seconds = turn.end
-            end_hours = end_seconds // 3600
-            end_minutes = (end_seconds % 3600) // 60
-            end_remaining_seconds = end_seconds % 60
             # Check to see if we have any speaker names provided
             if self.args.speakers:
                 # Get the index of the speaker, using the last two digits of the string
@@ -58,7 +50,7 @@ class WordFlow:
                 else:
                     speaker = self.args.speakers[speaker_id]
             self.speaker_segments.append({"start": int(turn.start), "end": int(turn.end), "speaker": speaker})
-            print("[{:02.0f}:{:02.0f}:{:02.0f}] -> [{:02.0f}:{:02.0f}:{:02.0f}]: {}".format(start_hours, start_minutes, start_remaining_seconds, end_hours, end_minutes, end_remaining_seconds, speaker))
+            print("[{:0.2f}] -> [{:0.2f}]: {}".format(turn.start, turn.end, speaker))
     
     def create_wav(self, input_file):
         mp3_file = AudioSegment.from_mp3(input_file)
@@ -184,7 +176,7 @@ class WordFlow:
             wav_filepath = self.create_wav(args.input)
             self.diaritize(wav_filepath)
             self.destroy_wav(wav_filepath)
-        self.transcribe(args.input, self.args.diaritize)
+        # self.transcribe(args.input, self.args.diaritize)
         self.finished = True
 
     def dump_output(self, timestamps = False):
