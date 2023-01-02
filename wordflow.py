@@ -125,9 +125,7 @@ class WordFlow:
         # # Ensure the run-on sentences are combined correctly
         # # self.output.combine_runons()
 
-        # # Combine same speaker lines up to the max word count
-        # if self.args.combine_same_speaker_paragraphs:
-        #     self.output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
+
 
     # def lookup_speaker(self, time_s):
     #     for segment in self.speaker_segments:
@@ -160,6 +158,11 @@ class WordFlow:
             self.logger.info("Generated {} new wav files based on segments".format(len(segments)))
 
         output = self.transcribe(segments, self.args.diaritize)
+
+        # Combine same speaker lines up to the max word count
+        if self.args.combine_same_speaker_paragraphs:
+            output.combine_same_speaker_sentences(self.args.max_words_same_speaker)
+
         output.print()
 
         self.logger.info("Removing all wav files")

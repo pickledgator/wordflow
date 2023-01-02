@@ -34,47 +34,43 @@ class Output:
     #     # Remove the lines that were combined
     #     self.output = [item for i, item in enumerate(self.output) if i not in lines_to_delete]
 
-    # def combine_same_speaker_sentences(self, max_words: int):
-    #     paragraph_words = 0
-    #     paragraph_start_index = 0
-    #     lines_to_delete = []
-    #     for index, line in enumerate(self.output):
-    #         # Skip the first line
-    #         if index == 0:
-    #             continue
+    def combine_same_speaker_sentences(self, max_words: int):
+        paragraph_words = 0
+        paragraph_start_index = 0
+        lines_to_delete = []
+        for index, segment in enumerate(self.output):
+            # Skip the first line
+            if index == 0:
+                continue
 
-    #         # Check to see if the speakaer matches the previous line
-    #         if line.speaker == self.output[index-1].speaker:
-    #             # Add the words from this line to the counter
-    #             paragraph_words += len(line.text.split())
-    #             # If the number of words is still less than the max_words, combine it
-    #             if paragraph_words < max_words:
-    #                 self.combine_prev_line(index, paragraph_start_index)
-    #                 lines_to_delete.append(index)
-    #             else:
-    #                 # Once we've exceeded the max words, update the paragraph_start_index for the next paragraph
-    #                 paragraph_start_index = index
-    #                 # Ensure the next line word counter has already included the first line in the paragraph
-    #                 paragraph_words = len(line.text.split())
-    #                 self.logger.info("Paragraph is larger than {}, next paragraph index {}".format(max_words, paragraph_start_index))
-    #         else:
-    #             # If the speaker changes, reset things
-    #             paragraph_start_index = index
-    #             paragraph_words = len(line.text.split())
-    #             self.logger.info("Speaker changed, paragraph index is now {}".format(paragraph_start_index))
+            # Check to see if the speakaer matches the previous line
+            if segment.speaker == self.output[index-1].speaker:
+                # Add the words from this line to the counter
+                paragraph_words += len(segment.text.split())
+                # If the number of words is still less than the max_words, combine it
+                if paragraph_words < max_words:
+                    self.combine_prev_line(index, paragraph_start_index)
+                    lines_to_delete.append(index)
+                else:
+                    # Once we've exceeded the max words, update the paragraph_start_index for the next paragraph
+                    paragraph_start_index = index
+                    # Ensure the next line word counter has already included the first line in the paragraph
+                    paragraph_words = len(segment.text.split())
+            else:
+                # If the speaker changes, reset things
+                paragraph_start_index = index
+                paragraph_words = len(segment.text.split())
         
-    #     # Remove the lines that were combined
-    #     self.output = [item for i, item in enumerate(self.output) if i not in lines_to_delete]
+        # Remove the lines that were combined
+        self.output = [item for i, item in enumerate(self.output) if i not in lines_to_delete]
 
 
-    # def combine_prev_line(self, index, prev_index):
-    #     self.logger.info("Combining line {} with previous line".format(index))
-    #     # Append the text of the current line onto the end of the previous line
-    #     self.output[prev_index].text += self.output[index].text
-    #     # Update the end time of the previous line to the end time of the current line
-    #     self.output[prev_index].end_hours = self.output[index].end_hours
-    #     self.output[prev_index].end_minutes = self.output[index].end_minutes
-    #     self.output[prev_index].end_seconds = self.output[index].end_seconds
+    def combine_prev_line(self, index, prev_index):
+        self.logger.info("Combining line {} with previous line".format(index))
+        # Append the text of the current line onto the end of the previous line
+        self.output[prev_index].text += self.output[index].text
+        # Update the end time of the previous line to the end time of the current line
+        self.output[prev_index].end = self.output[index].end
 
     def print(self, timestamps = False):
         print("======================================")
