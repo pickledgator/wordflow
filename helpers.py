@@ -87,6 +87,7 @@ def split_wav_segments(input_file: str, segments: list) -> int:
         num_channels = wave_file.getnchannels()
         sample_width = wave_file.getsampwidth()
         frame_rate = wave_file.getframerate()
+        print("Frame rate: {}".format(frame_rate))
         num_frames = wave_file.getnframes()
         # Read the wave file frames
         wave_data = wave_file.readframes(num_frames)
@@ -96,9 +97,10 @@ def split_wav_segments(input_file: str, segments: list) -> int:
 
     # Split the segments and write the files
     for i, segment in enumerate(segments):
-        start = segment["start"]
-        end = segment["end"]
-        segment_data = data[start:end]
+        start = segment["start"] * frame_rate
+        end = segment["end"] * frame_rate
+        print(f"Start: {start}, End: {end}")
+        segment_data = data[int(start):int(end)]
         with wave.open(f"segment_{i+1}.wav", "wb") as wave_file:
             wave_file.setnchannels(num_channels)
             wave_file.setsampwidth(sample_width)
